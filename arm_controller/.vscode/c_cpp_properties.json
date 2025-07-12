@@ -1,0 +1,25 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/include/**",
+                "${workspaceFolder}/src/**",
+                // "${workspaceFolder}/../../devel/include",
+                "/opt/ros/noetic/include/**",
+                "/usr/include/**",
+                "/usr/include/eigen3/**",
+                "/usr/include/eigen3/Eigen"
+                // "/usr/include/pcl-1.10/**"
+            ],
+            "defines": [],
+            "compilerPath": "/usr/bin/g++",
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "linux-gcc-x64",
+            // "compileCommands": "${workspaceFolder}/../../build/yura_yabu_beta/compile_commands.json",
+            // "configurationProvider": "ms-vscode.cmake-tools",
+        }
+    ],
+    "version": 4
+}

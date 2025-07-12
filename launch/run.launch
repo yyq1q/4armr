@@ -1,0 +1,10 @@
+<launch>
+    <include file="$(find serial_communicator)/launch/serial_communicator.launch">
+    </include>
+
+    <include file="$(find arm_controller)/launch/arm_controller.launch">
+    </include>
+
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find arm_controller)/rviz/rviz.rviz" output="screen">
+    </node>
+</launch>

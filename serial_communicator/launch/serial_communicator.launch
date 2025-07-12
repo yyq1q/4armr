@@ -1,0 +1,9 @@
+<launch>
+    <arg name="port" default="/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_AB0MIZHA-if00-port0" />
+    <arg name="baudrate" default="57600" />
+    <param name="port" value="$(arg port)" />
+    <param name="baudrate" value="$(arg baudrate)" />
+    <param name="angle_topic_name" value="arm_angles" />
+    <node name="serial_communicator" pkg="serial_communicator" type="serial_communicator_node" output="screen">
+    </node>
+</launch>
