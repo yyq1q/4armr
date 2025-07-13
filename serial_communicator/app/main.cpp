@@ -4,6 +4,7 @@
 #include <std_msgs/Float64MultiArray.h>
 #include <sensor_msgs/JointState.h>
 #include <boost/bind.hpp>
+#include <sensor_msgs/Joy.h>
 
 union AngleData
 {
@@ -18,6 +19,7 @@ union PosData
 };
 
 AngleData angle_data;
+AngleData angle_data2;
 AngleData received_angle_data;
 
 template <typename T, typename U>
@@ -36,6 +38,7 @@ double normalizeAngle(double angle)
 }
 
 PosData send_pos_data;
+PosData send_pos_data2;
 
 uint8_t header[2] = {0xFF, 0xFF};
 uint8_t footer[2] = {0xFE, 0xFD};
@@ -106,14 +109,17 @@ void jointState2Callback(const sensor_msgs::JointState::ConstPtr& msg, SerialCom
             isInverse = 1.0;
         }
 
-        angle_data.angles[i * 3 + 0] = static_cast<float>(msg->position[i * 3 + 0] * 180 / M_PI);
-        angle_data.angles[i * 3 + 1] = static_cast<float>(msg->position[i * 3 + 1] * 180 / M_PI);
-        angle_data.angles[i * 3 + 2] = static_cast<float>(msg->position[i * 3 + 2] * 180 / M_PI);
+        angle_data2.angles[i * 3 + 0] = static_cast<float>(msg->position[i * 3 + 0] * 180 / M_PI);
+        angle_data2.angles[i * 3 + 1] = static_cast<float>(msg->position[i * 3 + 1] * 180 / M_PI);
+        angle_data2.angles[i * 3 + 2] = static_cast<float>(msg->position[i * 3 + 2] * 180 / M_PI);
 
-        send_pos_data.positions[i * 3 + 0] = static_cast<uint16_t>(mapValue(normalizeAngle(msg->position[i * 3 + 0] * 180 / M_PI), -180.0, 180.0, 0, 4095));
-        send_pos_data.positions[i * 3 + 1] = static_cast<uint16_t>(mapValue(normalizeAngle(msg->position[i * 3 + 1] * 180 / M_PI), -180.0, 180.0, 0, 4095));
-        send_pos_data.positions[i * 3 + 2] = static_cast<uint16_t>(mapValue(normalizeAngle(msg->position[i * 3 + 2] * 180 / M_PI), -180.0, 180.0, 0, 4095));
+        send_pos_data2.positions[i * 3 + 0] = static_cast<uint16_t>(mapValue(normalizeAngle(msg->position[i * 3 + 0] * 180 / M_PI), -180.0, 180.0, 0, 4095));
+        send_pos_data2.positions[i * 3 + 1] = static_cast<uint16_t>(mapValue(normalizeAngle(msg->position[i * 3 + 1] * 180 / M_PI), -180.0, 180.0, 0, 4095));
+        send_pos_data2.positions[i * 3 + 2] = static_cast<uint16_t>(mapValue(normalizeAngle(msg->position[i * 3 + 2] * 180 / M_PI), -180.0, 180.0, 0, 4095));
+    }
 }
+
+sensor_msgs::Joy current_joy_msg;
 
 int main(int argc, char** argv)
 {
@@ -132,6 +138,13 @@ int main(int argc, char** argv)
 
     ros::Subscriber joint_state_sub = nh.subscribe<sensor_msgs::JointState>("joint_states", 1, 
         boost::bind(jointStateCallback, _1, &serial));
+    ros::Subscriber joint_state_sub2 = nh.subscribe<sensor_msgs::JointState>("joint_states2", 1, 
+        boost::bind(jointState2Callback, _1, &serial));
+
+    ros::Subscriber joy_sub = nh.subscribe<sensor_msgs::Joy>("joy", 1, [&](const sensor_msgs::Joy::ConstPtr& msg)
+    {
+        current_joy_msg = *msg;
+    });
 
     if (!serial.open_port(serial_baudrate))
     {
@@ -206,7 +219,17 @@ int main(int argc, char** argv)
         data_to_send.push_back(24); // データ長を指定
         
         // data_to_send.insert(data_to_send.end(), angle_data.bytes, angle_data.bytes + sizeof(angle_data.bytes));
-        data_to_send.insert(data_to_send.end(), send_pos_data.bytes, send_pos_data.bytes + sizeof(send_pos_data.bytes));
+        if (current_joy_msg.buttons[0] == 1 ||
+            current_joy_msg.buttons[1] == 1 ||
+            current_joy_msg.buttons[2] == 1 ||
+            current_joy_msg.buttons[3] == 1)
+        {
+            data_to_send.insert(data_to_send.end(), send_pos_data2.bytes, send_pos_data2.bytes + sizeof(send_pos_data2.bytes));
+        }
+        else
+        {
+            data_to_send.insert(data_to_send.end(), send_pos_data.bytes, send_pos_data.bytes + sizeof(send_pos_data.bytes));
+        }
         
         data_to_send.push_back(footer[0]);
         data_to_send.push_back(footer[1]);
