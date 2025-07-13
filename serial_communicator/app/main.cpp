@@ -40,14 +40,7 @@ PosData send_pos_data;
 uint8_t header[2] = {0xFF, 0xFF};
 uint8_t footer[2] = {0xFE, 0xFD};
 
-geometry_msgs::Vector3 target_angle = geometry_msgs::Vector3();
 const int arm_num = 4;
-std::vector<geometry_msgs::Vector3> arm_angles(arm_num);
-
-void callback(const geometry_msgs::Vector3::ConstPtr& msg)
-{
-    target_angle = *msg;
-}
 
 void jointStateCallback(const sensor_msgs::JointState::ConstPtr& msg, SerialCommunication* serial)
 {
@@ -90,6 +83,38 @@ void jointStateCallback(const sensor_msgs::JointState::ConstPtr& msg, SerialComm
     }
 }
 
+void jointState2Callback(const sensor_msgs::JointState::ConstPtr& msg, SerialCommunication* serial)
+{
+    if (msg->name.size() != arm_num * 3)
+    {
+        ROS_ERROR("Received joint state does not contain enough data for all arms.");
+        return;
+    }
+
+    for (int i = 0; i < arm_num; i++)
+    {
+        double x_offset = 0.0;
+        double isInverse = 1.0;
+        if (i % 2 == 0)
+        {
+            x_offset = -90.0;
+            isInverse = -1.0;
+        }
+        else
+        {
+            x_offset = 90.0;
+            isInverse = 1.0;
+        }
+
+        angle_data.angles[i * 3 + 0] = static_cast<float>(msg->position[i * 3 + 0] * 180 / M_PI);
+        angle_data.angles[i * 3 + 1] = static_cast<float>(msg->position[i * 3 + 1] * 180 / M_PI);
+        angle_data.angles[i * 3 + 2] = static_cast<float>(msg->position[i * 3 + 2] * 180 / M_PI);
+
+        send_pos_data.positions[i * 3 + 0] = static_cast<uint16_t>(mapValue(normalizeAngle(msg->position[i * 3 + 0] * 180 / M_PI), -180.0, 180.0, 0, 4095));
+        send_pos_data.positions[i * 3 + 1] = static_cast<uint16_t>(mapValue(normalizeAngle(msg->position[i * 3 + 1] * 180 / M_PI), -180.0, 180.0, 0, 4095));
+        send_pos_data.positions[i * 3 + 2] = static_cast<uint16_t>(mapValue(normalizeAngle(msg->position[i * 3 + 2] * 180 / M_PI), -180.0, 180.0, 0, 4095));
+}
+
 int main(int argc, char** argv)
 {
     ros::init(argc, argv, "serial_communicator");
@@ -105,7 +130,6 @@ int main(int argc, char** argv)
     nh.getParam("angle_topic_name", angle_topic_name);
     ros::Publisher pub = nh.advertise<std_msgs::Float64MultiArray>(angle_topic_name, 10);
 
-    ros::Subscriber sub = nh.subscribe("target_angle", 1, callback);
     ros::Subscriber joint_state_sub = nh.subscribe<sensor_msgs::JointState>("joint_states", 1, 
         boost::bind(jointStateCallback, _1, &serial));
 

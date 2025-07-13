@@ -36,20 +36,21 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
   ${EIGEN3_INCLUDE_DIR}
 )
-add_executable(${PROJECT_NAME}_node
-  app/champ.cpp
-  ${SOURCES}
-)
 
-add_dependencies(${PROJECT_NAME}_node
-  ${${PROJECT_NAME}_EXPORTED_TARGETS}
-  ${catkin_EXPORTED_TARGETS}
-)
+# add_executable(${PROJECT_NAME}_node
+#   app/champ.cpp
+#   ${SOURCES}
+# )
 
-target_link_libraries(${PROJECT_NAME}_node
-  ${catkin_LIBRARIES}
-  Eigen3::Eigen
-)
+# add_dependencies(${PROJECT_NAME}_node
+#   ${${PROJECT_NAME}_EXPORTED_TARGETS}
+#   ${catkin_EXPORTED_TARGETS}
+# )
+
+# target_link_libraries(${PROJECT_NAME}_node
+#   ${catkin_LIBRARIES}
+#   Eigen3::Eigen
+# )
 
 # Test
 add_executable(${PROJECT_NAME}_test
@@ -65,12 +66,6 @@ add_dependencies(${PROJECT_NAME}_test
 target_link_libraries(${PROJECT_NAME}_test
   ${catkin_LIBRARIES}
   Eigen3::Eigen
-)
-
-
-
-install(TARGETS ${PROJECT_NAME}_node
-  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
 install(DIRECTORY include/${PROJECT_NAME}/

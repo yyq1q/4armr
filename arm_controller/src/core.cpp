@@ -1,5 +1,6 @@
 #include <arm_controller/arm.h>
 #include <arm_controller/core.h>
+#include <arm_controller/spline.h>
 #include <iostream>
 
 const int arm_num = 4;
@@ -32,15 +33,8 @@ std::vector<std::tuple<double, double, double, bool>> setLegPositionsFromBody(
     // 各足先の目標位置を計算
     for(int i = 0; i < arm_num; i++)
     {
-        // bodyからの相対位置をクォタニオンで回転
-        Vector3d rotated_offset = body_orientation * leg_offsets[i];
-        
-        // bodyの位置からのオフセットを加算して絶対位置を計算
-        Vector3d target_position = -body_position;
-        
+        Vector3d target_position = -body_position - leg_offsets[i] + body_orientation.inverse() * leg_offsets[i];   
         target_positions.push_back(arms[i].calculateAngle(target_position));
-        std::cout << body_position << std::endl;
-        std::cout << target_position.transpose() << std::endl;
     }
     return target_positions;
 }
@@ -62,10 +56,44 @@ const Vector3d default_leg_offsets[arm_num] =
     Vector3d(-0.1, -0.1, 0.0)   // arm3: 右前足
 };
 
-const Vector3d ini_leg_angle[arm_num] =
+std::vector<Vector3d> setKneeOrientation(const std::string& kneeOrientation)
 {
-    Vector3d( 90.0,  0.0, 0.0),  // arm0: 左前足
-    Vector3d( 90.0,  0.0, 0.0),  // arm1: 右前足
-    Vector3d( 90.0,  0.0, 0.0),  // arm2: 左後足
-    Vector3d( 90.0,  0.0, 0.0)   // arm3: 右前足
-};
+    std::vector<Vector3d> kneeAngle(arm_num);
+    if (kneeOrientation == "<<")
+    {
+        kneeAngle[0] = Vector3d(-90.0, -60.0,  120.0);  // arm0: 左前足
+        kneeAngle[1] = Vector3d( 90.0,  60.0, -120.0);  // arm1: 右前足
+        kneeAngle[2] = Vector3d(-90.0, -60.0,  120.0);  // arm2: 左後足
+        kneeAngle[3] = Vector3d( 90.0,  60.0, -120.0);  // arm3: 右前足
+    }
+    else if (kneeOrientation == ">>")
+    {
+        kneeAngle[0] = Vector3d(-90.0,  60.0, -120.0);  // arm0: 左前足
+        kneeAngle[1] = Vector3d( 90.0, -60.0,  120.0);  // arm1: 右前足
+        kneeAngle[2] = Vector3d(-90.0,  60.0, -120.0);  // arm2: 左後足
+        kneeAngle[3] = Vector3d( 90.0, -60.0,  120.0);  // arm3: 右前足
+    }
+    else if (kneeOrientation == "<>")
+    {
+        kneeAngle[0] = Vector3d(-90.0,  60.0, -120.0); // arm1: 左前足
+        kneeAngle[1] = Vector3d( 90.0, -60.0,  120.0); // arm2: 右前足
+        kneeAngle[2] = Vector3d(-90.0, -60.0,  120.0); // arm3: 左後足
+        kneeAngle[3] = Vector3d( 90.0,  60.0, -120.0); // arm4: 右前足
+    }
+    else if (kneeOrientation == "><")
+    {
+        kneeAngle[0] = Vector3d(-90.0, -60.0,  120.0);  // arm0: 左前足
+        kneeAngle[1] = Vector3d( 90.0,  60.0, -120.0);  // arm1: 右前足
+        kneeAngle[2] = Vector3d(-90.0,  60.0, -120.0);  // arm2: 左後足
+        kneeAngle[3] = Vector3d( 90.0, -60.0,  120.0);  // arm3: 右前足
+    }
+    else
+    {
+        // デフォルトの角度を設定
+        for (int i = 0; i < arm_num; i++)
+        {
+            kneeAngle[i] = Vector3d(90.0, 0.0, 0.0);
+        }
+    }
+    return kneeAngle;
+}
