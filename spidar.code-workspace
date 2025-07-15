@@ -8,6 +8,9 @@
 		},
 		{
 			"path": "launch"
+		},
+		{
+			"path": "champ_teleop"
 		}
 	],
 	"settings": {

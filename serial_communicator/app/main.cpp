@@ -76,10 +76,10 @@ void jointStateCallback(const sensor_msgs::JointState::ConstPtr& msg, SerialComm
         send_pos_data.positions[i * 3 + 1] = static_cast<uint16_t>(mapValue(normalizeAngle(msg->position[i * 3 + 1] * 180 / M_PI * (-isInverse)), -180.0, 180.0, 0, 4095));
         send_pos_data.positions[i * 3 + 2] = static_cast<uint16_t>(mapValue(normalizeAngle(msg->position[i * 3 + 2] * 180 / M_PI * isInverse), -180.0, 180.0, 0, 4095));
 
-        std::cout << "ARM" << i << ": "
-                  << "Angle1: " << angle_data.angles[i * 3 + 0] << ", "
-                  << "Angle2: " << angle_data.angles[i * 3 + 1] << ", "
-                  << "Angle3: " << angle_data.angles[i * 3 + 2] << ", " << std::endl;
+        // std::cout << "ARM" << i << ": "
+        //           << "Angle1: " << angle_data.angles[i * 3 + 0] << ", "
+        //           << "Angle2: " << angle_data.angles[i * 3 + 1] << ", "
+        //           << "Angle3: " << angle_data.angles[i * 3 + 2] << ", " << std::endl;
                 //   << "Position1: " << send_pos_data.positions[i * 3 + 0] << ", "
                 //   << "Position2: " << send_pos_data.positions[i * 3 + 1] << ", "
                 //   << "Position3: " << send_pos_data.positions[i * 3 + 2] << std::endl;
@@ -109,13 +109,13 @@ void jointState2Callback(const sensor_msgs::JointState::ConstPtr& msg, SerialCom
             isInverse = 1.0;
         }
 
-        angle_data2.angles[i * 3 + 0] = static_cast<float>(msg->position[i * 3 + 0] * 180 / M_PI);
-        angle_data2.angles[i * 3 + 1] = static_cast<float>(msg->position[i * 3 + 1] * 180 / M_PI);
-        angle_data2.angles[i * 3 + 2] = static_cast<float>(msg->position[i * 3 + 2] * 180 / M_PI);
+        angle_data2.angles[i * 3 + 0] = static_cast<float>(msg->position[i * 3 + 0]);
+        angle_data2.angles[i * 3 + 1] = static_cast<float>(msg->position[i * 3 + 1]);
+        angle_data2.angles[i * 3 + 2] = static_cast<float>(msg->position[i * 3 + 2]);
 
-        send_pos_data2.positions[i * 3 + 0] = static_cast<uint16_t>(mapValue(normalizeAngle(msg->position[i * 3 + 0] * 180 / M_PI), -180.0, 180.0, 0, 4095));
-        send_pos_data2.positions[i * 3 + 1] = static_cast<uint16_t>(mapValue(normalizeAngle(msg->position[i * 3 + 1] * 180 / M_PI), -180.0, 180.0, 0, 4095));
-        send_pos_data2.positions[i * 3 + 2] = static_cast<uint16_t>(mapValue(normalizeAngle(msg->position[i * 3 + 2] * 180 / M_PI), -180.0, 180.0, 0, 4095));
+        send_pos_data2.positions[i * 3 + 0] = static_cast<uint16_t>(mapValue(normalizeAngle(msg->position[i * 3 + 0]), -180.0, 180.0, 0, 4095));
+        send_pos_data2.positions[i * 3 + 1] = static_cast<uint16_t>(mapValue(normalizeAngle(-msg->position[i * 3 + 1]), -180.0, 180.0, 0, 4095));
+        send_pos_data2.positions[i * 3 + 2] = static_cast<uint16_t>(mapValue(normalizeAngle(msg->position[i * 3 + 2]), -180.0, 180.0, 0, 4095));
     }
 }
 
@@ -141,6 +141,8 @@ int main(int argc, char** argv)
     ros::Subscriber joint_state_sub2 = nh.subscribe<sensor_msgs::JointState>("joint_states2", 1, 
         boost::bind(jointState2Callback, _1, &serial));
 
+    current_joy_msg.buttons.resize(32, 0);
+    current_joy_msg.axes.resize(32, 0.0);
     ros::Subscriber joy_sub = nh.subscribe<sensor_msgs::Joy>("joy", 1, [&](const sensor_msgs::Joy::ConstPtr& msg)
     {
         current_joy_msg = *msg;
@@ -166,12 +168,27 @@ int main(int argc, char** argv)
     //     }
     // }
 
+    // 送信データの初期化
+    for (int i = 0; i < arm_num * 3; ++i)
+    {
+        send_pos_data.positions[i] = 2048;
+        send_pos_data2.positions[i] = 2048;
+    }
+    send_pos_data.positions[0] = 1024;
+    send_pos_data2.positions[0] = 1024;
+    send_pos_data.positions[3] = 3072;
+    send_pos_data2.positions[3] = 3072;
+    send_pos_data.positions[6] = 1024;
+    send_pos_data2.positions[6] = 1024;
+    send_pos_data.positions[9] = 3072;
+    send_pos_data2.positions[9] = 3072;
+
     ros::Time start_time = ros::Time::now();
     ros::Timer timer = nh.createTimer(ros::Duration(0.01), [&](const ros::TimerEvent&)
     {
     });
 
-    ros::Timer timer2 = nh.createTimer(ros::Duration(0.05), [&](const ros::TimerEvent&)
+    ros::Timer timer2 = nh.createTimer(ros::Duration(0.1), [&](const ros::TimerEvent&)
     {
         // auto received_data = serial.receive_bytes();
         // if (!received_data.empty())
@@ -213,23 +230,24 @@ int main(int argc, char** argv)
         // }
 
         std::vector<uint8_t> data_to_send;
+        data_to_send.clear();
     
         data_to_send.push_back(header[0]);
         data_to_send.push_back(header[1]);
         data_to_send.push_back(24); // データ長を指定
         
-        // data_to_send.insert(data_to_send.end(), angle_data.bytes, angle_data.bytes + sizeof(angle_data.bytes));
-        if (current_joy_msg.buttons[0] == 1 ||
-            current_joy_msg.buttons[1] == 1 ||
-            current_joy_msg.buttons[2] == 1 ||
-            current_joy_msg.buttons[3] == 1)
-        {
-            data_to_send.insert(data_to_send.end(), send_pos_data2.bytes, send_pos_data2.bytes + sizeof(send_pos_data2.bytes));
-        }
-        else
-        {
-            data_to_send.insert(data_to_send.end(), send_pos_data.bytes, send_pos_data.bytes + sizeof(send_pos_data.bytes));
-        }
+        data_to_send.insert(data_to_send.end(), angle_data.bytes, angle_data.bytes + sizeof(angle_data.bytes));
+        // if (current_joy_msg.buttons[0] == 1 ||
+        //     current_joy_msg.buttons[1] == 1 ||
+        //     current_joy_msg.buttons[2] == 1 ||
+        //     current_joy_msg.buttons[3] == 1)
+        // {
+        //     data_to_send.insert(data_to_send.end(), send_pos_data2.bytes, send_pos_data2.bytes + sizeof(send_pos_data2.bytes));
+        // }
+        // else
+        // {
+        //     data_to_send.insert(data_to_send.end(), send_pos_data.bytes, send_pos_data.bytes + sizeof(send_pos_data.bytes));
+        // }
         
         data_to_send.push_back(footer[0]);
         data_to_send.push_back(footer[1]);
@@ -242,11 +260,11 @@ int main(int argc, char** argv)
 
         if (serial.send_binary_data(data_to_send))
         {
-            // for (int i = 0; i < data_to_send.size(); ++i)
-            // {
-            //     std::cout << std::hex << static_cast<int>(data_to_send[i]) << " ";
-            // }
-            // std::cout << std::dec << std::endl;
+            for (int i = 0; i < data_to_send.size(); ++i)
+            {
+                std::cout << std::hex << static_cast<int>(data_to_send[i]) << " ";
+            }
+            std::cout << std::dec << std::endl;
         }
         else
         {

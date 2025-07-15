@@ -1,5 +1,5 @@
 <launch>
     <param name="angle_topic_name" value="arm_angles" />
-    <node name="arm_controller_node" pkg="arm_controller" type="arm_controller_node" output="screen">
+    <node name="arm_controller_node" pkg="arm_controller" type="arm_controller_test" output="screen">
     </node>
 </launch>

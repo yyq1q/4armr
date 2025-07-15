@@ -129,5 +129,5 @@ int main(int argc, char** argv) {
 
 void callbackJoy(const sensor_msgs::Joy::ConstPtr& joy_msg)
 {
-    current_joy_msg = *joy_msg;
+    // current_joy_msg = *joy_msg;
 }
