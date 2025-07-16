@@ -37,7 +37,7 @@ struct PosData
 };
 
 // 受信バッファ
-const int BUFFER_SIZE = 52;  // ヘッダー(2) + データ(48) + フッター(2)
+const int BUFFER_SIZE = 24 + 5;  // ヘッダー(2) + データ長 + データ(24) + フッター(2)
 uint8_t receive_buffer[0xFF];
 int buffer_index = 0;
 uint8_t header[2] = {0xFF, 0xFF};
@@ -124,7 +124,7 @@ void setup()
 {
 	USB_SERIAL.begin(USB_BUADRATE);
 	BT_SERIAL.begin(BT_BUADRATE);
-	BT_SERIAL.setTimeout(10);
+	BT_SERIAL.setTimeout(1);
 	// DynamixelCtrl::init();
 	// DynamixelCtrl::WaitUntilScanDYNAMIXEL();
 	// for (int i = 0; i < arm_num; i++)
@@ -134,173 +134,66 @@ void setup()
     delay(1000);
 }
 
-int num = 0;
-
-void loop()
-{
-    if (BT_SERIAL.available())
+void loop() {
+    while (BT_SERIAL.available())
     {
-        num = BT_SERIAL.available();
-        USB_SERIAL.println(num);
-        uint8_t byte[0xFFFF];
-        int bytesRead = BT_SERIAL.readBytes(byte, sizeof(byte));
-        USB_SERIAL.print("Read ");
-        USB_SERIAL.print(bytesRead);
-        USB_SERIAL.print(" bytes: ");
-        for (int i= 0; i < bytesRead; i++)
-        {
-            USB_SERIAL.print(byte[i], HEX);
-        }
-        USB_SERIAL.println();
+        uint8_t incoming = BT_SERIAL.read();
 
-        if (bytesRead == byte[2] + 5 && 
-            byte[0] == header[0] &&
-            byte[1] == header[1] &&
-            byte[bytesRead - 2] == footer[0] &&
-            byte[bytesRead - 1] == footer[1])
+        switch (state)
         {
-            if (byte[2] == 24)
-            {
-                memcpy(&receive_pos_data, &byte[3], 24);
-                for (int i = 0; i < arm_num; i++)
+            case WAITING_FOR_HEADER:
+                if (incoming == 0xFF && buffer_index == 0)
                 {
-                    USB_SERIAL.print("ARM" + String(i) + ": ");
-                    USB_SERIAL.print("Pos1: ");
-                    USB_SERIAL.print(receive_pos_data.pos[i * 3 + 0]);
-                    USB_SERIAL.print(", Pos2: ");
-                    USB_SERIAL.print(receive_pos_data.pos[i * 3 + 1]);
-                    USB_SERIAL.print(", Pos3: ");
-                    USB_SERIAL.println(receive_pos_data.pos[i * 3 + 2]);
+                    receive_buffer[buffer_index++] = incoming;
+                } 
+                else if (buffer_index == 1 && incoming == 0xFF)
+                {
+                    receive_buffer[buffer_index++] = incoming;
+                    state = RECEIVING_DATA;
                 }
-            }
+                else
+                {
+                    buffer_index = 0;
+                }
+                break;
+
+            case RECEIVING_DATA:
+                receive_buffer[buffer_index++] = incoming;
+                if (buffer_index >= BUFFER_SIZE)
+                {
+                    if (receive_buffer[BUFFER_SIZE - 2] == footer[0] &&
+                        receive_buffer[BUFFER_SIZE - 1] == footer[1])
+                        {
+                        // 正常パケット
+                        memcpy(&receive_pos_data, &receive_buffer[3], sizeof(PosData));
+                        for (int i = 0; i < arm_num; i++)
+                        {
+                            USB_SERIAL.print("ARM" + String(i) + ": ");
+                            USB_SERIAL.print("Pos1: ");
+                            USB_SERIAL.print(receive_pos_data.pos[i * 3 + 0]);
+                            USB_SERIAL.print(", Pos2: ");
+                            USB_SERIAL.print(receive_pos_data.pos[i * 3 + 1]);
+                            USB_SERIAL.print(", Pos3: ");
+                            USB_SERIAL.println(receive_pos_data.pos[i * 3 + 2]);
+                            arms[i].setPos(receive_pos_data.pos[i * 3 + 0],
+                                           receive_pos_data.pos[i * 3 + 1],
+                                           receive_pos_data.pos[i * 3 + 2]);
+                        }
+                        USB_SERIAL.println("##################\n");
+                    }
+                    else
+                    {
+                        USB_SERIAL.println("Invalid packet (footer mismatch) - discarded");
+                    }
+                    buffer_index = 0;
+                    state = WAITING_FOR_HEADER;
+                }
+                break;
+
+            default:
+                buffer_index = 0;
+                state = WAITING_FOR_HEADER;
+                break;
         }
     }
-    USB_SERIAL.println("=================");
 }
-
-// void loop()
-// {
-//     // 受信処理を優先
-//     if (BT_SERIAL.available() > 0)
-//     {
-//         static uint8_t temp_buffer[256];
-//         static int temp_index = 0;
-        
-//         // 利用可能なバイト数だけ読み取る
-//         int available = BT_SERIAL.available();
-//         int bytes_to_read = (available < (int)(sizeof(temp_buffer) - temp_index)) ? available : (int)(sizeof(temp_buffer) - temp_index);
-        
-//         if (bytes_to_read > 0) {
-//             int bytesRead = BT_SERIAL.readBytes(&temp_buffer[temp_index], bytes_to_read);
-//             temp_index += bytesRead;
-            
-//             // デバッグ出力
-//             USB_SERIAL.print("Read ");
-//             USB_SERIAL.print(bytesRead);
-//             USB_SERIAL.print(" bytes, total buffer: ");
-//             USB_SERIAL.println(temp_index);
-//         }
-        
-//         // バッファオーバーフロー対策
-//         if (temp_index > 200) {
-//             memmove(temp_buffer, &temp_buffer[100], temp_index - 100);
-//             temp_index -= 100;
-//             USB_SERIAL.println("Buffer overflow protection activated");
-//         }
-        
-//         // メッセージ処理ループ（複数メッセージを一度に処理）
-//         bool messageFound = true;
-//         while (messageFound && temp_index >= 5) { // 最小メッセージサイズ（ヘッダー2+長さ1+フッター2）
-//             messageFound = false;
-            
-//             // ヘッダーを検索
-//             for (int i = 0; i <= temp_index - 5; i++) {
-//                 if (temp_buffer[i] == header[0] && temp_buffer[i + 1] == header[1]) {
-                    
-//                     uint8_t data_length = temp_buffer[i + 2];
-//                     int total_message_length = 2 + 1 + data_length + 2; // ヘッダー + 長さ + データ + フッター
-                    
-//                     // データ長の妥当性をチェック
-//                     if (data_length != 24 && data_length != 48) {
-//                         // USB_SERIAL.print("Invalid data length: ");
-//                         // USB_SERIAL.println(data_length);
-//                         continue;
-//                     }
-//                     USB_SERIAL.print("Found message with length: ");
-                    
-//                     // バッファに十分なデータがあるかチェック
-//                     if (i + total_message_length <= temp_index) {
-                        
-//                         // フッターの位置を確認
-//                         if (temp_buffer[i + total_message_length - 2] == footer[0] && 
-//                             temp_buffer[i + total_message_length - 1] == footer[1]) {
-                            
-//                             if (data_length == 48) {
-//                                 // 52バイトメッセージ処理（ヘッダー2+長さ1+データ48+フッター2）
-//                                 memcpy(receive_buffer, &temp_buffer[i], total_message_length);
-//                                 memcpy(&angle_data, &receive_buffer[3], sizeof(AngleData)); // データは3バイト目から
-                                
-//                                 for (int j = 0; j < arm_num; j++) {
-//                                     arms[j].setAngle(angle_data.angles[j * 3],
-//                                                     angle_data.angles[j * 3 + 1],
-//                                                     angle_data.angles[j * 3 + 2]);
-//                                 }
-                                
-//                                 USB_SERIAL.println("Processed 52-byte message");
-                                
-//                             } else if (data_length == 24) {
-//                                 // 28バイトメッセージ処理（ヘッダー2+長さ1+データ24+フッター2）
-//                                 memcpy(receive_buffer, &temp_buffer[i], total_message_length);
-//                                 memcpy(&receive_pos_data, &receive_buffer[3], sizeof(PosData)); // データは3バイト目から
-                                
-//                                 for (int j = 0; j < arm_num; j++) {
-//                                     arms[j].setAngle(dmap(receive_pos_data.pos[j * 3 + 0], 0, 4095, -180, 180),
-//                                                      dmap(receive_pos_data.pos[j * 3 + 1], 0, 4095, -180, 180),
-//                                                      dmap(receive_pos_data.pos[j * 3 + 2], 0, 4095, -180, 180));
-//                                 }
-                                
-//                                 USB_SERIAL.println("Processed 28-byte message");
-//                             }
-                            
-//                             // 処理したメッセージを削除
-//                             int remaining = temp_index - i - total_message_length;
-//                             if (remaining > 0) {
-//                                 memmove(temp_buffer, &temp_buffer[i + total_message_length], remaining);
-//                             }
-//                             temp_index = remaining;
-//                             messageFound = true;
-//                             break;
-//                         }
-//                     }
-//                 }
-//             }
-//         }
-//     }
-    
-//     // 送信処理（送信頻度を制限）
-//     // static unsigned long lastSendTime = 0;
-//     // const unsigned long SEND_INTERVAL = 50; // 50ms間隔（20Hz）
-//     // if (millis() - lastSendTime >= SEND_INTERVAL) {
-//     //     for (int i = 0; i < arm_num; i++) {
-//     //         send_pos_data.pos[i * 3]     = static_cast<uint16_t>(dmap(std::get<0>(arms[i].getAngle()), -180, 180, 0, 4095));
-//     //         send_pos_data.pos[i * 3 + 1] = static_cast<uint16_t>(dmap(std::get<1>(arms[i].getAngle()), -180, 180, 0, 4095));
-//     //         send_pos_data.pos[i * 3 + 2] = static_cast<uint16_t>(dmap(std::get<2>(arms[i].getAngle()), -180, 180, 0, 4095));
-//     //     }
-        
-//     //     // 新しいフォーマットでの送信バッファ作成
-//     //     uint8_t send_buffer[27]; // ヘッダー2 + 長さ1 + データ24 + フッター2
-//     //     send_buffer[0] = header[0];  // 0xFF
-//     //     send_buffer[1] = header[1];  // 0xFF
-//     //     send_buffer[2] = 24;         // データ長
-//     //     memcpy(&send_buffer[3], &send_pos_data, sizeof(PosData)); // データ24バイト
-//     //     send_buffer[25] = footer[0]; // 0xFE
-//     //     send_buffer[26] = footer[1]; // 0xFD
-        
-//     //     BT_SERIAL.write(send_buffer, 27);
-//     //     lastSendTime = millis();
-//     // }
-//     // printAngle(arms[0].getAngle(), 0, BT_SERIAL);
-//     // printAngle(arms[1].getAngle(), 1, BT_SERIAL);
-//     // printAngle(arms[2].getAngle(), 2, BT_SERIAL);
-//     // printAngle(arms[3].getAngle(), 3, BT_SERIAL);
-// }
