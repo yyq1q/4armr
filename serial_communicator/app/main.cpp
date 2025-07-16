@@ -190,45 +190,6 @@ int main(int argc, char** argv)
 
     ros::Timer timer2 = nh.createTimer(ros::Duration(0.01), [&](const ros::TimerEvent&)
     {
-        // auto received_data = serial.receive_bytes();
-        // if (!received_data.empty())
-        // {
-        //     ROS_INFO("Received data size: %zu", received_data.size());
-        //     if (received_data.size() >= 4 && 
-        //         received_data[0] == header[0] &&
-        //         received_data[1] == header[1] &&
-        //         received_data[2] == 24 &&
-        //         received_data[received_data.size() - 2] == footer[0] &&
-        //         received_data[received_data.size() - 1] == footer[1])
-        //     {
-        //         memcpy(received_angle_data.bytes, received_data.data() + 3, sizeof(received_angle_data.bytes));
-        //         std_msgs::Float64MultiArray angles_array_msg;
-        //         angles_array_msg.layout.dim.resize(2);
-        //         angles_array_msg.layout.dim[0].label = "arm";
-        //         angles_array_msg.layout.dim[0].size = arm_num;
-        //         angles_array_msg.layout.dim[0].stride = 3 * arm_num;
-        //         angles_array_msg.layout.dim[1].label = "angle";
-        //         angles_array_msg.layout.dim[1].size = 3;
-        //         angles_array_msg.layout.dim[1].stride = 1;
-        //         angles_array_msg.layout.data_offset = 0;
-        //         angles_array_msg.data.resize(arm_num * 3); // 4 ARMs × 3 angles
-        //         for (int i = 0; i < arm_num; ++i)
-        //         {
-        //             angles_array_msg.data[i * 3 + 0] = received_angle_data.angles[i * 3 + 0];
-        //             angles_array_msg.data[i * 3 + 1] = received_angle_data.angles[i * 3 + 1];
-        //             angles_array_msg.data[i * 3 + 2] = received_angle_data.angles[i * 3 + 2];
-        //         }
-        //         pub.publish(angles_array_msg);
-        //     }
-        // }
-
-        // auto received_data = serial.receive_data();
-        // if (!received_data.empty())
-        // {
-        //     std::cout << "Received data size: " << received_data.size() << std::endl;
-        //     std::cout << "Received data: " << received_data << std::endl;
-        // }
-
         std::vector<uint8_t> data_to_send;
     
         data_to_send.push_back(header[0]);
@@ -250,12 +211,6 @@ int main(int argc, char** argv)
         
         data_to_send.push_back(footer[0]);
         data_to_send.push_back(footer[1]);
-
-        // for (int i = 0; i < data_to_send.size(); ++i)
-        // {
-        //     std::cout << std::hex << static_cast<int>(data_to_send[i]) << " ";
-        // }
-        // std::cout << std::dec << std::endl;
 
         if (serial.send_binary_data(data_to_send))
         {

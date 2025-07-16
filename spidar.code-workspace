@@ -11,6 +11,9 @@
 		},
 		{
 			"path": "champ_teleop"
+		},
+		{
+			"path": "arduino"
 		}
 	],
 	"settings": {
