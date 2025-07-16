@@ -56,6 +56,13 @@ void Arm::setAngle(double angle1, double angle2, double angle3)
     dxl.setGoalPosition(id3, dmap(normalizeAngle(angle3), -180, 180, 0, 4095));
 }
 
+bool Arm::setPos(double pos1, double pos2, double pos3)
+{
+    return dxl.setGoalPosition(id1, pos1) &&
+           dxl.setGoalPosition(id2, pos2) &&
+           dxl.setGoalPosition(id3, pos3);
+}
+
 std::tuple<double, double, double> Arm::getAngle()
 {
     return std::make_tuple(dmap(dxl.getPresentPosition(id1), 0, 4095, -180.0, 180.0),

@@ -15,6 +15,7 @@ public:
         uint8_t id3, Vector3d axis3, Vector3d link3);
     bool init();
     void setAngle(double angle1, double angle2, double angle3);
+    bool setPos(double pos1, double pos2, double pos3);
     std::tuple<double, double, double> getAngle();
     Matrix3d getRotationMatrix(Vector3d axis, double angle);
     Vector3d calculateEndEffectorPosition();
