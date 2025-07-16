@@ -188,7 +188,7 @@ int main(int argc, char** argv)
     {
     });
 
-    ros::Timer timer2 = nh.createTimer(ros::Duration(0.1), [&](const ros::TimerEvent&)
+    ros::Timer timer2 = nh.createTimer(ros::Duration(0.01), [&](const ros::TimerEvent&)
     {
         // auto received_data = serial.receive_bytes();
         // if (!received_data.empty())
@@ -230,24 +230,23 @@ int main(int argc, char** argv)
         // }
 
         std::vector<uint8_t> data_to_send;
-        data_to_send.clear();
     
         data_to_send.push_back(header[0]);
         data_to_send.push_back(header[1]);
         data_to_send.push_back(24); // データ長を指定
         
-        data_to_send.insert(data_to_send.end(), angle_data.bytes, angle_data.bytes + sizeof(angle_data.bytes));
-        // if (current_joy_msg.buttons[0] == 1 ||
-        //     current_joy_msg.buttons[1] == 1 ||
-        //     current_joy_msg.buttons[2] == 1 ||
-        //     current_joy_msg.buttons[3] == 1)
-        // {
-        //     data_to_send.insert(data_to_send.end(), send_pos_data2.bytes, send_pos_data2.bytes + sizeof(send_pos_data2.bytes));
-        // }
-        // else
-        // {
-        //     data_to_send.insert(data_to_send.end(), send_pos_data.bytes, send_pos_data.bytes + sizeof(send_pos_data.bytes));
-        // }
+        // data_to_send.insert(data_to_send.end(), angle_data.bytes, angle_data.bytes + sizeof(angle_data.bytes));
+        if (current_joy_msg.buttons[0] == 1 ||
+            current_joy_msg.buttons[1] == 1 ||
+            current_joy_msg.buttons[2] == 1 ||
+            current_joy_msg.buttons[3] == 1)
+        {
+            data_to_send.insert(data_to_send.end(), send_pos_data2.bytes, send_pos_data2.bytes + sizeof(send_pos_data2.bytes));
+        }
+        else
+        {
+            data_to_send.insert(data_to_send.end(), send_pos_data.bytes, send_pos_data.bytes + sizeof(send_pos_data.bytes));
+        }
         
         data_to_send.push_back(footer[0]);
         data_to_send.push_back(footer[1]);
@@ -262,7 +261,7 @@ int main(int argc, char** argv)
         {
             for (int i = 0; i < data_to_send.size(); ++i)
             {
-                std::cout << std::hex << static_cast<int>(data_to_send[i]) << " ";
+                std::cout << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(data_to_send[i]) << " ";
             }
             std::cout << std::dec << std::endl;
         }
